@@ -1,8 +1,8 @@
-streamlit
 pandas
 numpy
-scikit-learn
+scikit-learn==1.6.1
 nltk
+joblib
+streamlit
 matplotlib
 seaborn
-tensorflow==2.20.0

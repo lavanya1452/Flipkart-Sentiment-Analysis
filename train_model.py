@@ -1,7 +1,10 @@
 from pathlib import Path
-import pickle
 
+import joblib
+import nltk
 import pandas as pd
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
@@ -12,6 +15,15 @@ ROOT = Path(__file__).resolve().parent
 DATA_PATH = ROOT / "Flipkart_Reviews_Sentiment_Analysis_30000x25.csv"
 MODEL_PATH = ROOT / "sentiment_model.pkl"
 VECTORIZER_PATH = ROOT / "tfidf_vectorizer.pkl"
+
+
+def clean_text(text, stop_words, lemmatizer):
+    words = [
+        lemmatizer.lemmatize(word)
+        for word in str(text).lower().split()
+        if word.isalpha() and word not in stop_words
+    ]
+    return " ".join(words)
 
 
 def main():
@@ -25,11 +37,17 @@ def main():
         raise ValueError(f"Dataset is missing required columns: {sorted(missing_columns)}")
 
     dataset = dataset.dropna(subset=["Sentiment"]).copy()
+    nltk.download("stopwords", quiet=True)
+    nltk.download("wordnet", quiet=True)
+    stop_words = set(stopwords.words("english"))
+    lemmatizer = WordNetLemmatizer()
+
     reviews = (
         dataset["Review_Summary"].fillna("").astype(str)
         + " "
         + dataset["Review_Text"].fillna("").astype(str)
     ).str.strip()
+    reviews = reviews.map(lambda review: clean_text(review, stop_words, lemmatizer))
     labels = dataset["Sentiment"].astype(str)
 
     if len(dataset) < 2 or labels.nunique() < 2:
@@ -44,18 +62,16 @@ def main():
         stratify=stratify,
     )
 
-    vectorizer = TfidfVectorizer(stop_words="english", max_features=50000, ngram_range=(1, 2))
+    vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
     train_features = vectorizer.fit_transform(train_reviews)
     test_features = vectorizer.transform(test_reviews)
 
-    model = LogisticRegression(max_iter=1000, class_weight="balanced")
+    model = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
     model.fit(train_features, train_labels)
     predictions = model.predict(test_features)
 
-    with MODEL_PATH.open("wb") as model_file:
-        pickle.dump(model, model_file)
-    with VECTORIZER_PATH.open("wb") as vectorizer_file:
-        pickle.dump(vectorizer, vectorizer_file)
+    joblib.dump(model, MODEL_PATH)
+    joblib.dump(vectorizer, VECTORIZER_PATH)
 
     print(f"Accuracy: {accuracy_score(test_labels, predictions):.4f}")
     print(classification_report(test_labels, predictions, zero_division=0))
