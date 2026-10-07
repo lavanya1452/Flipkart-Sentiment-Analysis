@@ -1,10 +1,17 @@
 import joblib
 import pandas as pd
 import streamlit as st
+from numbers import Integral
 
 st.set_page_config(
     page_title="Flipkart Review Sentiment Analyzer", page_icon="🛍️", layout="centered"
 )
+
+
+def sentiment_name(label):
+    if isinstance(label, Integral):
+        return {0: "Negative", 1: "Neutral", 2: "Positive"}.get(int(label), str(label))
+    return str(label)
 
 
 @st.cache_resource
@@ -38,14 +45,16 @@ try:
             prediction = model.predict(vec_input)[0]
             probabilities = model.predict_proba(vec_input)[0]
             classes = model.classes_
+            class_names = [sentiment_name(label) for label in classes]
+            predicted_sentiment = sentiment_name(prediction)
 
-            confidence_map = dict(zip(classes, probabilities))
-            confidence = confidence_map[prediction] * 100
+            confidence_map = dict(zip(class_names, probabilities))
+            confidence = confidence_map[predicted_sentiment] * 100
 
             st.markdown("---")
-            if prediction == "Positive":
+            if predicted_sentiment == "Positive":
                 st.subheader("Predicted Sentiment: 🟢 Positive")
-            elif prediction == "Neutral":
+            elif predicted_sentiment == "Neutral":
                 st.subheader("Predicted Sentiment: 🟡 Neutral")
             else:
                 st.subheader("Predicted Sentiment: 🔴 Negative")
@@ -55,7 +64,7 @@ try:
             # Breakdown Table
             prob_df = pd.DataFrame(
                 {
-                    "Sentiment": classes,
+                    "Sentiment": class_names,
                     "Probability (%)": [p * 100 for p in probabilities],
                 }
             )

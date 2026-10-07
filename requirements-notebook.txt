@@ -1,0 +1,6 @@
+-r requirements.txt
+matplotlib
+seaborn
+tensorflow>=2.20
+nbclient
+nbformat
